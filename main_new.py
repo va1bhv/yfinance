@@ -2,25 +2,22 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from tqdm import tqdm
-import logging
-logger = logging.getLogger('yfinance')
-logger.disabled = True
-logger.propagate = False
 
 tqdm.pandas()
 
 
-def get_data(tkr, collection_period='5d', collection_interval='90m', rolling_up=20, rolling_down=5):
-    try:
-        dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval)
+def get_data(tkr, collection_period='10d', collection_interval='90m', rolling_up=20, rolling_down=5):
+    dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval)
+    if dt is not None:
         # Adding Moving average calculated field
         dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
         dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
-        dt['%Diff'] = ((dt['MA20'] - dt['MA5'])/dt['MA20']) * 100
+        dt['%Diff'] = ((dt['MA20'] - dt['MA5']) / dt['MA20']) * 100
+        # dt['Gradient'] = np.gradient(dt['%Diff'])
         dt.dropna(inplace=True)
-        return dt
-    except KeyError:
-        return None
+    else:
+        dt = None
+    return dt
 
 
 def rsi(dta, window=14, adjust=False):
@@ -91,15 +88,52 @@ for i in tqdm(range(len(tickers))):
 tk = tickers.iloc[6, 0]
 df = get_data(tk)
 
-a = get_data('TATAPOWER.NS')
+# a = get_data('TATAPOWER.NS')
 
-for i in tqdm(range(len(tickers))):
-    temp = get_data(tickers.iloc[i, 0])
-    if temp is None:
-        tickers.loc[i, 'Close to crossover'] =
-        continue
+import matplotlib.pyplot as plt
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.arima.model import ARIMA
+
+
+# Function to determine the order of ARIMA model
+def find_arima_order(time_series):
+    # Step 2: Check stationarity
+    result = adfuller(time_series)
+    stationary = False
+    if result[1] < 0.05:  # p-value threshold
+        stationary = True
+        d = 0
     else:
-        if np.argmin(np.abs(temp['Diff'].fillna(np.inf).values)) < (len(temp) - 3):
-            tickers.loc[i, 'Close to crossover'] = False
-        else:
-            tickers.loc[i, 'Close to crossover'] = True
+        d = 1
+
+    # Step 3: Plot ACF and PACF
+    if stationary:
+        plot_acf(time_series)
+        plot_pacf(time_series)
+        plt.show()
+
+    # Step 4: Grid search for p and q
+    best_aic = np.inf
+    best_order = None
+    for p in range(3):
+        for q in range(3):
+            try:
+                model = ARIMA(time_series, order=(p, d, q))
+                fitted_model = model.fit()
+                aic = fitted_model.aic
+                if aic < best_aic:
+                    best_aic = aic
+                    best_order = (p, d, q)
+            except:
+                pass
+
+    return best_order
+
+
+# Example usage:
+a = get_data('SBIN.NS')
+a.reset_index(drop=True, inplace=True)
+ts = a.loc[:, '%Diff'].values
+order = find_arima_order(ts)
+print("Best ARIMA order:", order)
