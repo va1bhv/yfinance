@@ -1,0 +1,4 @@
+# YFinance
+
+---
+A yfinance app
