@@ -10,16 +10,17 @@ logger.propagate = False
 tqdm.pandas()
 
 
-def get_data(tkr, collection_period='60d', collection_interval='90m', rolling_up=20, rolling_down=5):
+def get_data(tkr, collection_period='5d', collection_interval='90m', rolling_up=20, rolling_down=5):
     try:
         dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval)
         # Adding Moving average calculated field
         dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
         dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
         dt['%Diff'] = ((dt['MA20'] - dt['MA5'])/dt['MA20']) * 100
+        dt.dropna(inplace=True)
         return dt
     except KeyError:
-        return -1
+        return None
 
 
 def rsi(dta, window=14, adjust=False):
@@ -42,6 +43,7 @@ def rsi(dta, window=14, adjust=False):
 tickers = pd.read_excel("MCAP28032024.xlsx")
 tickers = tickers.drop(columns=['Sr. No.', 'Market capitalization as on March 28, 2024\n(In lakhs)'])
 tickers['Symbol'] = tickers['Symbol'] + '.NS'
+tickers['Close to crossover'] = 0
 # tickers['Data'] = tickers['Symbol'].head(50).progress_apply(get_data)
 
 for i in tqdm(range(len(tickers))):
@@ -90,4 +92,14 @@ tk = tickers.iloc[6, 0]
 df = get_data(tk)
 
 a = get_data('TATAPOWER.NS')
-a['np_diff'] = np.append(np.diff(a['%Diff']), np.nan)
+
+for i in tqdm(range(len(tickers))):
+    temp = get_data(tickers.iloc[i, 0])
+    if temp is None:
+        tickers.loc[i, 'Close to crossover'] =
+        continue
+    else:
+        if np.argmin(np.abs(temp['Diff'].fillna(np.inf).values)) < (len(temp) - 3):
+            tickers.loc[i, 'Close to crossover'] = False
+        else:
+            tickers.loc[i, 'Close to crossover'] = True
