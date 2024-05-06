@@ -10,13 +10,13 @@ logger.propagate = False
 tqdm.pandas()
 
 
-def get_data(tkr, collection_period='8d', collection_interval='90m', rolling_up=20, rolling_down=5):
+def get_data(tkr, collection_period='60d', collection_interval='90m', rolling_up=20, rolling_down=5):
     try:
         dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval)
         # Adding Moving average calculated field
         dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
         dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
-        dt['Diff'] = (dt['MA20'] - dt['MA5'])/dt['MA20']
+        dt['%Diff'] = ((dt['MA20'] - dt['MA5'])/dt['MA20']) * 100
         return dt
     except KeyError:
         return -1
@@ -89,4 +89,5 @@ for i in tqdm(range(len(tickers))):
 tk = tickers.iloc[6, 0]
 df = get_data(tk)
 
-a = get_data('SBIN.NS')
+a = get_data('TATAPOWER.NS')
+a['np_diff'] = np.append(np.diff(a['%Diff']), np.nan)
