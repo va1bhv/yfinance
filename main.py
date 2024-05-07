@@ -1,6 +1,5 @@
 import warnings
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 from tqdm import tqdm
