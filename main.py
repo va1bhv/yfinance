@@ -28,9 +28,6 @@ with st.sidebar:
         num_tickers_btn = st.form_submit_button(
             label="Submit",
             help=None,
-            # on_click=read_data,
-            # args=num_tickers,
-            # kwargs=None,
             use_container_width=True)
 
         tickers = read_data(num_tickers)
@@ -83,4 +80,5 @@ if hyper_params_btn:
             compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
 
     tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
-    st.write(tickers)
+
+    
