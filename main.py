@@ -74,11 +74,31 @@ with st.sidebar:
         )
         st.write('Data downloaded')
 
-if hyper_params_btn:
-    for smbl in tickers.index:
-        tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
-            compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
+    if hyper_params_btn:
+        for smbl in tickers.index:
+            tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
+                compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
+        tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
 
-    tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
 
-    
+with st.container(border=True):
+    with st.form(key='symbol-chooser'):
+        chosen_tickers = st.multiselect(
+            "Choose tickers to view",
+            tickers['Symbol'].values,
+            on_change=None
+        )
+        choose_tickers = st.form_submit_button(
+            label='Submit',
+            use_container_width=False
+        )
+
+if 'ticker_choice' not in st.session_state:
+    st.session_state.ticker_choice = chosen_tickers
+
+# Session State also supports attribute based syntax
+if 'key' not in st.session_state:
+    st.session_state.key = 'value'
+
+with st.container():
+    tabs = st.tabs(['All', *chosen_tickers])
