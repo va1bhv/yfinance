@@ -78,7 +78,7 @@ with st.sidebar:
         st.write('Data downloaded')
 
 if hyper_params_btn:
-    for smbl in tqdm(tickers.index, total=len(tickers)):
+    for smbl in tickers.index:
         tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
             compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
 
