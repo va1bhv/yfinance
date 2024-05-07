@@ -1,31 +1,41 @@
 import warnings
-from multiprocessing.pool import ThreadPool
 
 import pandas as pd
 import yfinance as yf
 from statsmodels.tsa.arima.model import ARIMA
 from tqdm import tqdm
-import time
 
 tqdm.pandas()
 warnings.filterwarnings("ignore")
-
 
 # Check when crossover point is close and when MA5 is about to overtake MA20
 # Check when the diff is going -ve to +ve
 # Diff = MA5 - MA20
 # When Diff is -ve and slope is +ve
-def get_data(tkr, collection_period='5d', collection_interval='90m', rolling_up=20, rolling_down=5) -> pd.DataFrame:
-    dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval, progress=False)
-    if dt is not None:
-        # Adding Moving average calculated field
-        dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
-        dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
-        dt['%Diff'] = ((dt['MA5'] - dt['MA20']) / dt['MA5']) * 100
-        # dt['Gradient'] = np.gradient(dt['%Diff'])
-        dt.dropna(inplace=True)
-    else:
-        dt = None
+tickers = pd.read_excel("MCAP28032024.xlsx")
+
+tickers = tickers.drop(columns=['Sr. No.'])
+tickers.rename(columns={'Market capitalization as on March 28, 2024\n(In lakhs)': 'Market Cap'}, inplace=True)
+tickers['Symbol'] = tickers['Symbol'] + '.NS'
+tickers[['Close to crossover', 'Next Diff', 'RSI']] = 0
+tickers.set_index('Symbol', drop=False, inplace=True)
+tickers_top500 = tickers.nlargest(500, 'Market Cap')
+collection_period = '5d'
+collection_interval = '90m'
+data: pd.DataFrame = yf.download(tickers=tickers_top500['Symbol'].to_list(),
+                                 period=collection_period,
+                                 interval=collection_interval,
+                                 group_by='ticker',
+                                 threads=True)
+data.reset_index(drop=False, inplace=True, names='DateTime')
+
+
+def get_data(tkr, rolling_up=20, rolling_down=5) -> pd.DataFrame:
+    dt = data[tkr]
+    dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
+    dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
+    dt['%Diff'] = ((dt['MA5'] - dt['MA20']) / dt['MA5']) * 100
+    dt.dropna(inplace=True)
     return dt
 
 
@@ -47,15 +57,6 @@ def rsi(dta, window=14, adjust=False) -> float:
         return rsi_ans.values[-1]
     except IndexError:
         return -1
-
-
-tickers = pd.read_excel("MCAP28032024.xlsx")
-tickers = tickers.drop(columns=['Sr. No.'])
-tickers.rename(columns={'Market capitalization as on March 28, 2024\n(In lakhs)': 'Market Cap'}, inplace=True)
-tickers['Symbol'] = tickers['Symbol'] + '.NS'
-tickers[['Close to crossover', 'Next Diff', 'RSI']] = 0
-tickers.set_index('Symbol', drop=False, inplace=True)
-tickers_top500 = tickers.nlargest(500, 'Market Cap')
 
 
 def compute(tkr: str) -> tuple[bool, float, float]:
@@ -81,4 +82,3 @@ def compute(tkr: str) -> tuple[bool, float, float]:
 
 for smbl in tqdm(tickers_top500.index, total=len(tickers_top500)):
     tickers_top500.loc[smbl, ['Close to crossover', 'Next Diff', 'RSI']] = compute(smbl)
-
