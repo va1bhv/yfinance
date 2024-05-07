@@ -1,28 +1,46 @@
-import numpy as np
+import warnings
+
 import pandas as pd
 import yfinance as yf
+from statsmodels.tsa.arima.model import ARIMA
 from tqdm import tqdm
-import logging
-logger = logging.getLogger('yfinance')
-logger.disabled = True
-logger.propagate = False
 
 tqdm.pandas()
+warnings.filterwarnings("ignore")
+
+# Check when crossover point is close and when MA5 is about to overtake MA20
+# Check when the diff is going -ve to +ve
+# Diff = MA5 - MA20
+# When Diff is -ve and slope is +ve
+
+tickers = pd.read_excel("MCAP28032024.xlsx")
+
+tickers = tickers.drop(columns=['Sr. No.'])
+tickers.rename(columns={'Market capitalization as on March 28, 2024\n(In lakhs)': 'Market Cap'}, inplace=True)
+tickers['Symbol'] = tickers['Symbol'] + '.NS'
+tickers[['Close to crossover', 'Next Diff', 'RSI']] = 0
+tickers.set_index('Symbol', drop=False, inplace=True)
+tickers_top500 = tickers.nlargest(500, 'Market Cap')
+collection_period = '5d'
+collection_interval = '90m'
+data: pd.DataFrame = yf.download(tickers=tickers_top500['Symbol'].to_list(),
+                                 period=collection_period,
+                                 interval=collection_interval,
+                                 group_by='ticker',
+                                 threads=True)
+data.reset_index(drop=False, inplace=True, names='DateTime')
 
 
-def get_data(tkr, collection_period='8d', collection_interval='90m', rolling_up=20, rolling_down=5):
-    try:
-        dt = yf.download(tickers=tkr, period=collection_period, interval=collection_interval)
-        # Adding Moving average calculated field
-        dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
-        dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
-        dt['Diff'] = (dt['MA20'] - dt['MA5'])/dt['MA20']
-        return dt
-    except KeyError:
-        return -1
+def get_data(tkr, rolling_up=20, rolling_down=5) -> pd.DataFrame:
+    dt = data[tkr]
+    dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
+    dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
+    dt['%Diff'] = ((dt['MA5'] - dt['MA20']) / dt['MA5']) * 100
+    dt.dropna(inplace=True)
+    return dt
 
 
-def rsi(dta, window=14, adjust=False):
+def rsi(dta, window=14, adjust=False) -> float:
     delta = dta['Close'].diff(1).dropna()
     loss = delta.copy()
     gains = delta.copy()
@@ -34,59 +52,34 @@ def rsi(dta, window=14, adjust=False):
     loss_ewm = abs(loss.ewm(com=window - 1, adjust=adjust).mean())
 
     rs = gain_ewm / loss_ewm
-    rsi = 100 - 100 / (1 + rs)
+    rsi_ans = 100 - 100 / (1 + rs)
 
-    return rsi
+    try:
+        return rsi_ans.values[-1]
+    except IndexError:
+        return -1
 
 
-tickers = pd.read_excel("MCAP28032024.xlsx")
-tickers = tickers.drop(columns=['Sr. No.', 'Market capitalization as on March 28, 2024\n(In lakhs)'])
-tickers['Symbol'] = tickers['Symbol'] + '.NS'
-# tickers['Data'] = tickers['Symbol'].head(50).progress_apply(get_data)
+def compute(tkr: str) -> tuple[bool, float, float]:
+    """
+    :param tkr: Symbol to fetch the data for
+    :return close_to_crossover: if the difference between the moving averages will cross over
+            nn: forecasted difference next in the time series
+            rsi: the computed rsi of the latest data
+    """
+    temp = get_data(tkr)
+    temp.reset_index(inplace=True, names='DateTime')
+    time_series = temp['%Diff'].values
 
-# for i in tqdm(range(len(tickers))):
-#     temp = get_data(tickers.iloc[i, 0])
-#     try:
-#         if np.argmin(np.abs(temp['Diff'].fillna(np.inf).values)) < len(temp) - 3:
-#             tickers.loc[i, 'Close to crossover'] = False
-#         else:
-#             tickers.loc[i, 'Close to crossover'] = True
-#     except ValueError:
-#         tickers.loc[i, 'Close to crossover'] = -1
+    if any(time_series[-3:] < 0):
+        return False, -1, -1
 
-# data = get_data(tickers.iloc[0, 0])
-# fig = go.Figure()
+    nn = ARIMA(time_series, order=(1, 1, 0)).fit().forecast(steps=1)[0]
+    if nn < 0:
+        return False, nn, -1
 
-# # Candlestick
-# fig.add_trace(go.Candlestick(x=data.index,
-#                              open=data['Open'],
-#                              high=data['High'],
-#                              low=data['Low'],
-#                              close=data['Close'], name='market data'))
-#
-# # Add Moving average on the graph
-# fig.add_trace(go.Scatter(x=data.index, y=data['MA20'], line=dict(color='blue', width=1.5), name='Long Term MA'))
-# fig.add_trace(go.Scatter(x=data.index, y=data['MA5'], line=dict(color='orange', width=1.5), name='Short Term MA'))
-#
-# # Updating X axis and graph
-# # X-Axes
-# fig.update_xaxes(
-#     rangeslider_visible=True,
-#     rangeselector=dict(
-#         buttons=list([
-#             dict(count=3, label="3d", step="day", stepmode="backward"),
-#             dict(count=5, label="5d", step="day", stepmode="backward"),
-#             dict(count=7, label="WTD", step="day", stepmode="todate"),
-#             dict(step="all")
-#         ])
-#     )
-# )
-#
-# # Show
-# # fig.write_html(f'data/{ticker}_data.html', auto_open=True)
-# fig.show()
+    return True, nn, rsi(temp)
 
-tk = tickers.iloc[6, 0]
-df = get_data(tk)
 
-a = get_data('SBIN.NS')
+for smbl in tqdm(tickers_top500.index, total=len(tickers_top500)):
+    tickers_top500.loc[smbl, ['Close to crossover', 'Next Diff', 'RSI']] = compute(smbl)
