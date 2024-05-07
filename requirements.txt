@@ -2,3 +2,4 @@ tqdm~=4.65.0
 yfinance
 statsmodels~=0.14.0
 pandas~=2.0.3
+openpyxl
