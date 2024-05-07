@@ -3,7 +3,9 @@ import warnings
 import altair as alt
 import pandas as pd
 import streamlit as st
+from tqdm import tqdm
 
+from dataProcess import compute
 from download_data import download_data
 from readData import read_data
 
@@ -76,3 +78,11 @@ with st.sidebar:
             collection_interval=collection_interval
         )
         st.write('Data downloaded')
+
+if hyper_params_btn:
+    for smbl in tqdm(tickers.index, total=len(tickers)):
+        tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
+            compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
+
+    tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
+    st.write(tickers)

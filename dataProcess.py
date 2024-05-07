@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 # When Diff is -ve and slope is +ve
 
 
-def get_data(tkr, rolling_up=20, rolling_down=5) -> pd.DataFrame:
+def _get_data(tkr: str, rolling_up: int, rolling_down: int, raw_data: pd.DataFrame) -> pd.DataFrame:
     dt = raw_data[tkr]
     dt['MA5'] = dt['Close'].rolling(rolling_down).mean()
     dt['MA20'] = dt['Close'].rolling(rolling_up).mean()
@@ -24,7 +24,7 @@ def get_data(tkr, rolling_up=20, rolling_down=5) -> pd.DataFrame:
     return dt
 
 
-def rsi(dta, window=14, adjust=False) -> float:
+def _rsi(dta, window=14, adjust=False) -> float:
     delta = dta['Close'].diff(1).dropna()
     loss = delta.copy()
     gains = delta.copy()
@@ -44,17 +44,10 @@ def rsi(dta, window=14, adjust=False) -> float:
         return -1
 
 
-def compute(tkr: str) -> tuple[bool, float, float, float, float, float]:
-    """
-    :param tkr: Symbol to fetch the raw_data for
-    :return close_to_crossover: if the difference between the moving averages will cross over
-            Close: the close price for the ticker
-            ma5: the 5 row moving average for the ticker
-            ma20: the 20 row moving average for the ticker
-            nn: forecasted difference next in the time series
-            rsi: the computed rsi of the latest raw_data
-    """
-    temp = get_data(tkr)
+def compute(tkr: str, rolling_up, rolling_down, raw_data: pd.DataFrame) -> \
+        tuple[bool, float, float, float, float, float]:
+
+    temp = _get_data(tkr, rolling_up, rolling_down, raw_data)
 
     if temp.empty:
         return False, -1, -1, -1, -1, -1
@@ -72,7 +65,7 @@ def compute(tkr: str) -> tuple[bool, float, float, float, float, float]:
     if nn < 0:
         return False, close, ma5, ma20, nn, -1
 
-    return True, close, ma5, ma20, nn, rsi(temp)
+    return True, close, ma5, ma20, nn, _rsi(temp)
 
 
 def main() -> None:
@@ -82,7 +75,7 @@ def main() -> None:
     tickers['Symbol'] = tickers['Symbol'] + '.NS'
     tickers[['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = False
     tickers.set_index('Symbol', drop=False, inplace=True)
-    tickers_top500 = tickers.nlargest(500, 'Market Cap')
+    # tickers_top500 = tickers.nlargest(500, 'Market Cap')
     collection_period = '5d'
     collection_interval = '90m'
     raw_data: pd.DataFrame = yf.download(tickers=tickers['Symbol'].to_list(),
@@ -93,7 +86,8 @@ def main() -> None:
     raw_data.reset_index(drop=False, inplace=True, names='DateTime')
 
     for smbl in tqdm(tickers.index, total=len(tickers)):
-        tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = compute(smbl)
+        tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
+            compute(smbl, raw_data, 20, 5)
 
     tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
     tickers.to_excel('Data.xlsx')

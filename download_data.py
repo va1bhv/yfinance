@@ -11,3 +11,4 @@ def download_data(tickers: collections.Iterable, collection_period: int, collect
                                          group_by='ticker',
                                          threads=True)
     raw_data.reset_index(drop=False, inplace=True, names='DateTime')
+    return raw_data
