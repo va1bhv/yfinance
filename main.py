@@ -2,7 +2,6 @@ import warnings
 
 import pandas as pd
 import streamlit as st
-from tqdm import tqdm
 
 from dataProcess import compute
 from download_data import download_data
@@ -37,6 +36,7 @@ with st.sidebar:
             st.caption('Ticker list loaded!')
 
     with st.form(key='hyper-parameters'):
+
         st.write('Choose hyper parameters')
         collection_period = st.select_slider(
             label='Collection period (Range)',
@@ -63,42 +63,43 @@ with st.sidebar:
         hyper_params_btn = st.form_submit_button(
             label="Submit",
             help=None,
-            use_container_width=True)
-
-    if hyper_params_btn:
-        st.write('Collecting raw data (It might a few minutes, please be patient)')
-        raw_data: pd.DataFrame = download_data(
-            tickers=tickers['Symbol'].to_list(),
-            collection_period=collection_period,
-            collection_interval=collection_interval
+            use_container_width=True,
         )
-        st.write('Data downloaded')
+        st.session_state.hyper_params_btn = hyper_params_btn
+        if hyper_params_btn:
+            st.write('Collecting raw data (It might a few minutes, please be patient)')
+            raw_data: pd.DataFrame = download_data(
+                tickers=tickers['Symbol'].to_list(),
+                collection_period=collection_period,
+                collection_interval=collection_interval
+            )
 
+            st.write('Data downloaded')
+
+with st.container(border=True):
     if hyper_params_btn:
         for smbl in tickers.index:
             tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
                 compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
         tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
+        st.session_state.tickers = tickers
+        st.session_state.raw_data = raw_data
+    chosen_tickers = st.multiselect(
+        "Choose tickers to view",
+        tickers['Symbol'].values,
+        on_change=None,
+    )
 
-
-with st.container(border=True):
-    with st.form(key='symbol-chooser'):
-        chosen_tickers = st.multiselect(
-            "Choose tickers to view",
-            tickers['Symbol'].values,
-            on_change=None
+    hyper_params_btn = st.session_state.hyper_params_btn
+    try:
+        tickers = st.session_state.tickers
+    except AttributeError:
+        tickers = pd.DataFrame(
+            columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
+                     'MA5', 'MA20', 'Next Diff %', 'RSI']
         )
-        choose_tickers = st.form_submit_button(
-            label='Submit',
-            use_container_width=False
-        )
-
-if 'ticker_choice' not in st.session_state:
-    st.session_state.ticker_choice = chosen_tickers
-
-# Session State also supports attribute based syntax
-if 'key' not in st.session_state:
-    st.session_state.key = 'value'
-
-with st.container():
-    tabs = st.tabs(['All', *chosen_tickers])
+    with st.container():
+        tabs = st.tabs(['All', *chosen_tickers])
+        all_tab = tabs[0]
+        with all_tab:
+            st.dataframe(tickers, use_container_width=True)
