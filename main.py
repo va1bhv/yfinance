@@ -102,4 +102,7 @@ with st.container(border=True):
         tabs = st.tabs(['All', *chosen_tickers])
         all_tab = tabs[0]
         with all_tab:
-            st.dataframe(tickers, use_container_width=True)
+            st.dataframe(
+                data=tickers,
+                use_container_width=True
+            )
