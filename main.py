@@ -92,6 +92,7 @@ with st.container(border=True):
         raw_data = st.session_state.raw_data
         rolling_up = st.session_state.rolling_up
         rolling_down = st.session_state.rolling_down
+        hyper_params_btn = st.session_state.hyper_params_btn
     except AttributeError:
         tickers = pd.DataFrame(
             columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
@@ -107,11 +108,11 @@ with st.container(border=True):
         tabs = st.tabs(['All', *chosen_tickers])
         all_tab = tabs[0]
         with all_tab:
-            if not chosen_tickers:
-                tickers = pd.DataFrame(
-                    columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
-                             'MA5', 'MA20', 'Next Diff %', 'RSI']
-                )
+            # if not hyper_params_btn:
+            #     tickers = pd.DataFrame(
+            #         columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
+            #                  'MA5', 'MA20', 'Next Diff %', 'RSI']
+            #     )
             st.dataframe(
                 data=tickers.drop(columns=['MA5', 'MA20', 'Close to crossover']),
                 use_container_width=True
