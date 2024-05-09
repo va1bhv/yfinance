@@ -1,7 +1,6 @@
 import warnings
 
 import pandas as pd
-import plotly.graph_objs as go
 import streamlit as st
 
 from canclestick_graph import draw
@@ -62,6 +61,12 @@ with st.sidebar:
             max_value=10,
             value=5
         )
+        negative_diff_tolerance = st.slider(
+            label='Short term moving average duration',
+            min_value=-10,
+            max_value=0,
+            value=-3
+        )
         hyper_params_btn = st.form_submit_button(
             label="Submit",
             help=None,
@@ -78,7 +83,8 @@ with st.sidebar:
 
             for smbl in tickers.index:
                 tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
-                    compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
+                    compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, tolerance=negative_diff_tolerance,
+                            raw_data=raw_data)
             tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
             st.write('Data downloaded')
             # st.dataframe(tickers)
@@ -125,4 +131,4 @@ with st.container(border=True):
                     use_container_width=True,
                 )
                 with st.expander(label='Raw data'):
-                    st.dataframe(data)
+                    st.dataframe(data, use_container_width=True)

@@ -44,7 +44,7 @@ def _rsi(dta, window=14, adjust=False) -> float:
         return -1
 
 
-def compute(tkr: str, rolling_up, rolling_down, raw_data: pd.DataFrame) -> \
+def compute(tkr: str, rolling_up, rolling_down, tolerance, raw_data: pd.DataFrame) -> \
         tuple[bool, float, float, float, float, float]:
 
     temp = _get_data(tkr, rolling_up, rolling_down, raw_data)
@@ -61,7 +61,7 @@ def compute(tkr: str, rolling_up, rolling_down, raw_data: pd.DataFrame) -> \
     if temp.empty:
         return False, close, ma5, ma20, -1, -1
 
-    if not all(time_series[-3:] > 0):
+    if not all(time_series[tolerance:] > 0):
         return False, close, ma5, ma20, -1, -1
 
     nn = ARIMA(time_series, order=(1, 1, 0)).fit().forecast(steps=1)[0]
