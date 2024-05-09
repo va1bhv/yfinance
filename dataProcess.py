@@ -1,5 +1,6 @@
 import warnings
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 from statsmodels.tsa.arima.model import ARIMA
@@ -44,9 +45,8 @@ def _rsi(dta, window=14, adjust=False) -> float:
         return -1
 
 
-def compute(tkr: str, rolling_up, rolling_down, tolerance, raw_data: pd.DataFrame) -> \
+def compute(tkr: str, rolling_up, rolling_down, width, tolerance, raw_data: pd.DataFrame) -> \
         tuple[bool, float, float, float, float, float]:
-
     temp = _get_data(tkr, rolling_up, rolling_down, raw_data)
 
     if temp.empty:
@@ -61,7 +61,7 @@ def compute(tkr: str, rolling_up, rolling_down, tolerance, raw_data: pd.DataFram
     if temp.empty:
         return False, close, ma5, ma20, -1, -1
 
-    if not all(time_series[tolerance:] > 0):
+    if len([i for i in time_series[-width:] > 0 if i]) > tolerance:
         return False, close, ma5, ma20, -1, -1
 
     nn = ARIMA(time_series, order=(1, 1, 0)).fit().forecast(steps=1)[0]

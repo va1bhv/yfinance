@@ -61,11 +61,17 @@ with st.sidebar:
             max_value=10,
             value=5
         )
+        negative_diff_width = st.slider(
+            label='Number of rows to apply non-positive condition for',
+            min_value=1,
+            max_value=10,
+            value=5
+        )
         negative_diff_tolerance = st.slider(
-            label='Short term moving average duration',
-            min_value=-10,
-            max_value=0,
-            value=-3
+            label='Maximum number of positives allowed',
+            min_value=1,
+            max_value=5,
+            value=2,
         )
         hyper_params_btn = st.form_submit_button(
             label="Submit",
@@ -83,8 +89,8 @@ with st.sidebar:
 
             for smbl in tickers.index:
                 tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
-                    compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, tolerance=negative_diff_tolerance,
-                            raw_data=raw_data)
+                    compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down,
+                            width=negative_diff_width, tolerance=negative_diff_tolerance, raw_data=raw_data)
             tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
             st.write('Data downloaded')
             # st.dataframe(tickers)
