@@ -58,7 +58,10 @@ def compute(tkr: str, rolling_up, rolling_down, raw_data: pd.DataFrame) -> \
     ma5: float = temp['MA5'].values[-1]
     ma20: float = temp['MA20'].values[-1]
 
-    if temp.empty or any(time_series[-3:] < 0):
+    if temp.empty:
+        return False, close, ma5, ma20, -1, -1
+
+    if not all(time_series[-3:] > 0):
         return False, close, ma5, ma20, -1, -1
 
     nn = ARIMA(time_series, order=(1, 1, 0)).fit().forecast(steps=1)[0]

@@ -9,5 +9,5 @@ def download_data(tickers, collection_period: int, collection_interval: int):
                                          group_by='ticker',
                                          threads=True,
                                          progress=False)
-    raw_data.reset_index(drop=False, inplace=True, names='DateTime')
+    # raw_data.reset_index(drop=False, inplace=True, names='DateTime')
     return raw_data

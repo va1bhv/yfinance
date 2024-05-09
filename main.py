@@ -1,8 +1,10 @@
 import warnings
 
 import pandas as pd
+import plotly.graph_objs as go
 import streamlit as st
 
+from canclestick_graph import draw
 from dataProcess import compute
 from download_data import download_data
 from readData import read_data
@@ -41,7 +43,7 @@ with st.sidebar:
         collection_period = st.select_slider(
             label='Collection period (Range)',
             options=['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'],
-            value='5d'
+            value='1mo'
         )
         collection_interval = st.select_slider(
             label='Collection interval (Granularity)',
@@ -74,35 +76,52 @@ with st.sidebar:
                 collection_interval=collection_interval
             )
 
+            for smbl in tickers.index:
+                tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
+                    compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
+            tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
             st.write('Data downloaded')
-
+            # st.dataframe(tickers)
+            st.session_state.raw_data = raw_data
+            st.session_state.tickers = tickers
+            st.session_state.rolling_up = rolling_up
+            st.session_state.rolling_down = rolling_down
 with st.container(border=True):
-    if hyper_params_btn:
-        for smbl in tickers.index:
-            tickers.loc[smbl, ['Close to crossover', 'Close', 'MA5', 'MA20', 'Next Diff %', 'RSI']] = \
-                compute(smbl, rolling_up=rolling_up, rolling_down=rolling_down, raw_data=raw_data)
-        tickers = tickers[tickers['Close to crossover']].sort_values(by='RSI', ascending=False)
-        st.session_state.tickers = tickers
-        st.session_state.raw_data = raw_data
-    chosen_tickers = st.multiselect(
-        "Choose tickers to view",
-        tickers['Symbol'].values,
-        on_change=None,
-    )
-
-    hyper_params_btn = st.session_state.hyper_params_btn
     try:
         tickers = st.session_state.tickers
+        raw_data = st.session_state.raw_data
+        rolling_up = st.session_state.rolling_up
+        rolling_down = st.session_state.rolling_down
     except AttributeError:
         tickers = pd.DataFrame(
             columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
                      'MA5', 'MA20', 'Next Diff %', 'RSI']
         )
+    chosen_tickers = st.multiselect(
+        "Choose tickers to view",
+        tickers['Symbol'].values,
+    )
+    hyper_params_btn = st.session_state.hyper_params_btn
+
     with st.container():
         tabs = st.tabs(['All', *chosen_tickers])
         all_tab = tabs[0]
         with all_tab:
+            if not chosen_tickers:
+                tickers = pd.DataFrame(
+                    columns=['Symbol', 'Company Name', 'Market Cap', 'Close to crossover', 'Close',
+                             'MA5', 'MA20', 'Next Diff %', 'RSI']
+                )
             st.dataframe(
-                data=tickers,
+                data=tickers.drop(columns=['MA5', 'MA20', 'Close to crossover']),
                 use_container_width=True
             )
+        for tab, tkr in zip(tabs[1:], chosen_tickers):
+            with tab:
+                fig, data = draw(raw_data[tkr], rolling_up, rolling_down)
+                st.plotly_chart(
+                    figure_or_data=fig,
+                    use_container_width=True,
+                )
+                with st.expander(label='Raw data'):
+                    st.dataframe(data)
